@@ -7,8 +7,8 @@
     <meta name="description" content="Rulla genom molnen. Ett litet 3D-äventyr med stora höjder." />
     <title>Boll — ett litet äventyr bland molnen</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23edf2ec'/%3E%3Ccircle cx='32' cy='32' r='19' fill='%23ed795b'/%3E%3Cpath d='M16 24q16 14 32 0' fill='none' stroke='%23fff6e7' stroke-width='6'/%3E%3C/svg%3E" />
-    <script type="module" crossorigin src="./assets/index-B5AeDkeh.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-jZQSdKQA.css">
+    <script type="module" crossorigin src="./assets/index-C4mygxdC.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-M9I67F88.css">
   </head>
   <body>
     <main id="app">
@@ -54,13 +54,16 @@
 
       <footer class="bottom-bar">
         <div class="course-note"><span id="course-number" class="course-number">BANA 01</span><span>Små steg. Stora höjder.</span></div>
-        <div class="controls-legend"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Rulla</span><span><kbd>SPACE</kbd> Bromsa</span><button id="restart" title="Generera en ny bana (R)"><kbd>R</kbd> Ny bana</button></div>
+        <div class="controls-legend"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Rulla</span><span><kbd>SPACE</kbd> Hoppa</span><span><kbd>SHIFT</kbd> Bromsa</span><button id="restart" title="Generera en ny bana (R)"><kbd>R</kbd> Ny bana</button></div>
         <span id="best" class="best-score">EN NY VÄG VARJE GÅNG <span>↗</span></span>
       </footer>
 
       <div id="touch-controls" class="touch-controls" aria-label="Pekstyrning">
         <div class="dpad"><button data-direction="up" aria-label="Rulla framåt">↑</button><button data-direction="left" aria-label="Rulla åt vänster">←</button><button data-direction="down" aria-label="Rulla bakåt">↓</button><button data-direction="right" aria-label="Rulla åt höger">→</button></div>
-        <button id="touch-brake" class="brake-button">Bromsa</button>
+        <div class="touch-actions">
+          <button id="touch-jump" class="jump-button" aria-label="Hoppa">Hoppa ↑</button>
+          <button id="touch-brake" class="brake-button">Bromsa</button>
+        </div>
       </div>
       <div id="loading" class="loading">Vi bygger en väg bland molnen<span>…</span></div>
       <div id="error" class="error-panel" role="alert" hidden><h2>3D-vyn kunde inte starta.</h2><p>Prova en webbläsare med WebGL och hårdvaruacceleration aktiverat.</p><button onclick="location.reload()" class="primary-button">Försök igen ↗</button></div>
