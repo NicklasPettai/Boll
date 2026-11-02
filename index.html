@@ -7,8 +7,8 @@
     <meta name="description" content="Rulla genom molnen. Ett litet 3D-äventyr med stora höjder." />
     <title>Boll — ett litet äventyr bland molnen</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23edf2ec'/%3E%3Ccircle cx='32' cy='32' r='19' fill='%23ed795b'/%3E%3Cpath d='M16 24q16 14 32 0' fill='none' stroke='%23fff6e7' stroke-width='6'/%3E%3C/svg%3E" />
-    <script type="module" crossorigin src="./assets/index-CVhWa-Np.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-M9I67F88.css">
+    <script type="module" crossorigin src="./assets/index-fE6km7FX.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-B4WsObo4.css">
   </head>
   <body>
     <main id="app">
@@ -18,6 +18,7 @@
         <a class="brand" href="./index.html" aria-label="Boll, startsida"><span class="brand-ball"></span>boll<span class="brand-dot">.</span></a>
         <div class="level-label"><span class="live-dot"></span> MOLNBANAN <span id="level-number" class="level-number">01</span></div>
         <div class="top-actions">
+          <button id="options" class="icon-button" aria-label="Öppna inställningar" title="Options – inställningar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m9 3-.5 3-2 1.2L4 6.6 2 10l2.4 1.8v2.4L2 16l2 3.4 2.5-.6 2 1.2.5 3h4l.5-3 2-1.2 2.5.6 2-3.4-2.4-1.8v-2.4L20.5 10l-2-3.4-2.5.6-2-1.2L13.5 3Z" transform="translate(1 -1) scale(.95)"/><circle cx="12" cy="12" r="3"/></svg></button>
           <button id="sound" class="icon-button" aria-label="Slå på ljud" title="Ljud på/av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path id="sound-waves" d="m16 9 6 6m0-6-6 6"/></svg></button>
           <button id="pause" class="icon-button" aria-label="Pausa spelet" title="Pausa (Esc)"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="5" width="3" height="14" rx="1"/><rect x="14" y="5" width="3" height="14" rx="1"/></svg></button>
         </div>
@@ -49,8 +50,22 @@
           <p id="dialog-text">Molnen finns kvar när du är redo.</p>
           <button id="resume" class="primary-button">Fortsätt rulla <span>↗</span></button>
           <button id="restart-dialog" class="text-button">Generera en ny bana</button>
+          <button id="pause-options" class="text-button">Inställningar</button>
         </div>
       </section>
+
+      <dialog id="options-dialog" class="options-dialog" aria-labelledby="options-title">
+        <form method="dialog" class="dialog-card options-card">
+          <span class="eyebrow">OPTIONS</span>
+          <h2 id="options-title">Inställningar</h2>
+          <label class="option-row" for="third-person">
+            <input id="third-person" type="checkbox" aria-labelledby="third-person-label" aria-describedby="third-person-description" />
+            <span><strong id="third-person-label">Tredjeperson</strong><small id="third-person-description">Följ bollen bakifrån. Avmarkera för att spela ovanifrån.</small></span>
+          </label>
+          <p id="camera-choice" class="camera-choice" aria-live="polite">Aktuell vy: Ovanifrån.</p>
+          <button id="options-close" class="primary-button" type="submit">Klart <span>↗</span></button>
+        </form>
+      </dialog>
 
       <footer class="bottom-bar">
         <div class="course-note"><span id="course-number" class="course-number">BANA 01</span><span>Små steg. Stora höjder.</span></div>
