@@ -15,9 +15,9 @@ test('desktop: renders 3D, starts, collects a star, pauses, and restarts', async
   await page.keyboard.down('ArrowUp');
   await expect(page.locator('#stars')).toHaveText('1', { timeout: 12000 });
   await page.keyboard.up('ArrowUp');
-  await page.keyboard.down('Space');
+  await page.keyboard.down('ShiftLeft');
   await page.waitForTimeout(400);
-  await page.keyboard.up('Space');
+  await page.keyboard.up('ShiftLeft');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('heading', { name: 'En liten paus.' })).toBeVisible();
   const time = await page.locator('#timer').textContent();
@@ -120,4 +120,63 @@ test('reload and repeated new-course generation keep producing playable fresh la
   await expect(page.locator('#stars')).toHaveText('1', { timeout: 12000 });
   await page.keyboard.up('ArrowUp');
   expect(errors).toEqual([]);
+});
+
+async function ballState(page) {
+  return page.evaluate(async () => {
+    const { game } = await import(document.querySelector('script[src*="/src/main.js"]').src);
+    return { y: game.ball.position.y, vz: game.ball.velocity.z, grounded: game.grounded };
+  });
+}
+
+test('Space taps and holds jump once, and Shift brakes instead of jumping', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto('/');
+  await expect(page.locator('#loading')).toBeHidden();
+  await page.getByRole('button', { name: 'Nu rullar vi' }).click();
+  await expect.poll(async () => (await ballState(page)).grounded).toBe(true);
+  // A short key press must be captured even between two rendered frames.
+  await page.keyboard.press('Space');
+  await expect.poll(async () => (await ballState(page)).y, { intervals: [25] }).toBeGreaterThan(1.3);
+  await page.screenshot({ path: 'test-results/desktop-jump.png' });
+  await expect.poll(async () => (await ballState(page)).grounded).toBe(true);
+  await page.keyboard.down('Space');
+  await expect.poll(async () => (await ballState(page)).y, { intervals: [25] }).toBeGreaterThan(1.3);
+  await expect.poll(async () => (await ballState(page)).grounded).toBe(true);
+  await page.waitForTimeout(250);
+  expect((await ballState(page)).y).toBeLessThan(0.65);
+  await page.keyboard.up('Space');
+  await page.keyboard.down('ArrowUp');
+  await expect.poll(async () => Math.abs((await ballState(page)).vz)).toBeGreaterThan(1.5);
+  await page.keyboard.up('ArrowUp');
+  await page.keyboard.down('ShiftLeft');
+  await expect.poll(async () => Math.abs((await ballState(page)).vz)).toBeLessThan(0.5);
+  await page.keyboard.up('ShiftLeft');
+  expect((await ballState(page)).y).toBeLessThan(0.65);
+  expect(errors).toEqual([]);
+});
+
+test('mobile jump button registers a quick tap and the ball lands again', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto('/');
+  await expect(page.locator('#loading')).toBeHidden();
+  await page.getByRole('button', { name: 'Nu rullar vi' }).tap();
+  const jump = page.getByRole('button', { name: 'Hoppa', exact: true });
+  await expect(jump).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Bromsa', exact: true })).toBeVisible();
+  await jump.tap();
+  await expect.poll(async () => (await ballState(page)).y, { intervals: [25] }).toBeGreaterThan(1.3);
+  await page.screenshot({ path: 'test-results/mobile-jump.png' });
+  await expect.poll(async () => (await ballState(page)).grounded).toBe(true);
+  expect((await ballState(page)).y).toBeLessThan(0.65);
+  await jump.focus();
+  await page.keyboard.press('Space');
+  await expect.poll(async () => (await ballState(page)).y, { intervals: [25] }).toBeGreaterThan(1.3);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+  await context.close();
 });

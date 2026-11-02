@@ -2,6 +2,9 @@ import * as CANNON from 'cannon-es';
 import { RADIUS, createSeed, generateLevel } from './level.js';
 export { RADIUS } from './level.js';
 
+const JUMP_SPEED = 8.5;
+const JUMP_BUFFER = 0.12;
+
 export class Game {
   constructor(options) {
     this.reset(options);
@@ -45,6 +48,7 @@ export class Game {
     this.simTime = 0;
     this.respawnTimer = 0;
     this.goalHintAt = null;
+    this.jumpHeld = false;
     this.placeBall(this.level.spawn.x, this.level.spawn.z);
   }
 
@@ -70,10 +74,17 @@ export class Game {
     this.ball.torque.setZero();
     this.ball.quaternion.set(0, 0, 0, 1);
     this.ball.aabbNeedsUpdate = true;
+    this.grounded = false;
+    this.jumpBuffer = 0;
   }
 
   start() { if (this.state === 'intro') this.state = 'playing'; }
-  pause() { if (this.state === 'playing') this.state = 'paused'; }
+  pause() {
+    if (this.state === 'playing') {
+      this.state = 'paused';
+      this.jumpBuffer = 0;
+    }
+  }
   resume() { if (this.state === 'paused') this.state = 'playing'; }
 
   step(dt, input = {}) {
@@ -82,6 +93,15 @@ export class Game {
     this.elapsed += dt;
     this.simTime += dt;
     this.respawnTimer = Math.max(0, this.respawnTimer - dt);
+    const jumpPressed = input.jumpPressed || (input.jump && !this.jumpHeld);
+    this.jumpHeld = !!input.jump;
+    this.jumpBuffer = jumpPressed ? JUMP_BUFFER : Math.max(0, this.jumpBuffer - dt);
+    if (this.grounded && this.jumpBuffer > 0) {
+      this.ball.velocity.y = JUMP_SPEED;
+      this.grounded = false;
+      this.jumpBuffer = 0;
+      events.push({ type: 'jump' });
+    }
     let dx = Number(!!input.right) - Number(!!input.left);
     let dz = Number(!!input.down) - Number(!!input.up);
     const length = Math.hypot(dx, dz);
@@ -99,6 +119,14 @@ export class Game {
       this.ball.velocity.z *= maxSpeed / speed;
     }
     this.world.step(dt);
+    // Cannon normals point from bi to bj. Only an upward support contact permits
+    // jumping; touching the side of a platform or being in midair does not.
+    this.grounded = this.ball.velocity.y <= 1 && this.world.contacts.some(contact => {
+      if (!contact.enabled) return false;
+      if (contact.bi === this.ball) return -contact.ni.y > 0.6;
+      if (contact.bj === this.ball) return contact.ni.y > 0.6;
+      return false;
+    });
     const p = this.ball.position;
     if (p.y < -9) {
       const spawn = this.checkpoint >= 0 ? this.level.checkpoints[this.checkpoint] : this.level.spawn;

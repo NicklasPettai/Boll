@@ -52,9 +52,16 @@ try {
       await expect(page.locator('#app')).not.toHaveAttribute('data-seed', seed);
       await expect(page.locator('#stars')).toHaveText('0');
       await expect(page.locator('#dialog')).toBeHidden();
+      await expect(page.locator('canvas')).toHaveAttribute('aria-label', /Mellanslag hoppar, Shift bromsar/);
+      if (mobile) {
+        await page.getByRole('button', { name: 'Hoppa', exact: true }).click();
+      } else {
+        await expect(page.locator('.controls-legend')).toContainText('Hoppa');
+        await page.keyboard.press('Space');
+      }
       await page.screenshot({ path: `test-results/published-${label}.png` });
       assert.deepEqual(errors, [], `${label}: browser or resource errors`);
-      console.log(`PASS ${label}: ${page.url()} returns HTTP 200, renders 3D, collects a star and generates a new course.`);
+      console.log(`PASS ${label}: ${page.url()} returns HTTP 200, renders 3D, collects a star, generates a new course and includes the jump controls.`);
     } catch (error) {
       await page.screenshot({ path: `test-results/published-${label}-failure.png` }).catch(() => {});
       console.error(`${label} failed at ${page.url()}:`, error);

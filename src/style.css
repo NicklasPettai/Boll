@@ -9,3 +9,7 @@
 .finish-icon{font-size:0;position:relative;width:15px;height:20px;border-left:1.5px solid #7b9180;transform:translateX(4px)}
 .finish-icon:after{content:"";position:absolute;left:0;top:1px;width:12px;height:9px;background:#7b9180;clip-path:polygon(0 0,100% 15%,100% 100%,0 80%)}
 @media(max-width:640px){.level-number{display:inline-block;font-size:7px;padding:3px 4px;margin-left:0}}
+.touch-actions{display:flex;flex-direction:column;gap:8px}
+.jump-button{pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;padding:18px 22px;border:1px solid #fff9;border-radius:12px;background:var(--ink);color:#fffdf2;font-size:13px;font-weight:550;box-shadow:0 3px 10px #263d3510}
+.jump-button.active{background:#4a6550}
+@media(min-width:641px) and (max-width:850px){.controls-legend{gap:10px}.controls-legend>span:first-child kbd:nth-child(n+2){display:none}.controls-legend>span:first-child kbd:first-child:after{content:"ASD"}}

@@ -7,6 +7,7 @@ const $ = (id) => document.getElementById(id);
 export const game = new Game();
 const keys = new Set();
 const touch = new Set();
+let jumpQueued = false;
 const fixedStep = 1 / 120;
 let accumulator = 0;
 let lastTime = 0;
@@ -198,7 +199,7 @@ function setupScene() {
   renderer.toneMappingExposure = 1.05;
   $('scene').appendChild(renderer.domElement);
   renderer.domElement.tabIndex = 0;
-  renderer.domElement.setAttribute('aria-label', 'Styr bollen med piltangenter eller WASD. Mellanslag bromsar, Esc pausar.');
+  renderer.domElement.setAttribute('aria-label', 'Styr bollen med piltangenter eller WASD. Mellanslag hoppar, Shift bromsar, Esc pausar.');
   scene.add(new THREE.HemisphereLight(0xfffff2, 0x89a798, 1.9));
   sun = new THREE.DirectionalLight(0xfff2d8, 2.4);
   sun.position.set(-14, 30, 14);
@@ -255,6 +256,7 @@ function burst(position) {
 
 function processEvents(events) {
   for(const event of events) {
+    if(event.type==='jump') tone(360,.16,.035);
     if(event.type==='star') {
       burst(stars[event.index].star.position);
       tone(660+game.collected.size*65);tone(990+game.collected.size*65,.18,.04,.07);
@@ -280,14 +282,26 @@ function processEvents(events) {
 }
 
 function getInput() {
-  return {up:keys.has('KeyW')||keys.has('ArrowUp')||touch.has('up'),down:keys.has('KeyS')||keys.has('ArrowDown')||touch.has('down'),left:keys.has('KeyA')||keys.has('ArrowLeft')||touch.has('left'),right:keys.has('KeyD')||keys.has('ArrowRight')||touch.has('right'),brake:keys.has('Space')||touch.has('brake')};
+  return {
+    up: keys.has('KeyW') || keys.has('ArrowUp') || touch.has('up'),
+    down: keys.has('KeyS') || keys.has('ArrowDown') || touch.has('down'),
+    left: keys.has('KeyA') || keys.has('ArrowLeft') || touch.has('left'),
+    right: keys.has('KeyD') || keys.has('ArrowRight') || touch.has('right'),
+    brake: keys.has('ShiftLeft') || keys.has('ShiftRight') || touch.has('brake'),
+    jump: keys.has('Space') || touch.has('jump'),
+    jumpPressed: jumpQueued,
+  };
 }
 
 function frame(time) {
   const dt=Math.min((time-(lastTime||time))/1000,.05);
   lastTime=time;
   accumulator+=dt;
-  while(accumulator>=fixedStep) {processEvents(game.step(fixedStep,getInput()));accumulator-=fixedStep;}
+  while(accumulator>=fixedStep) {
+    processEvents(game.step(fixedStep,getInput()));
+    jumpQueued = false;
+    accumulator-=fixedStep;
+  }
   const p=game.ball.position;
   ballMesh.position.copy(p);
   ballMesh.quaternion.copy(game.ball.quaternion);
@@ -327,6 +341,7 @@ function frame(time) {
 
 function clearInput() {
   keys.clear();touch.clear();
+  jumpQueued = false;
   document.querySelectorAll('.active').forEach(el=>el.classList.remove('active'));
 }
 
@@ -337,7 +352,9 @@ function start() {
   $('app').classList.add('playing');
   $('pause').disabled=false;
   renderer?.domElement.focus({preventScroll:true});
-  toast('Följ stjärnorna. Håll mellanslag för att bromsa.');
+  toast(matchMedia('(pointer: coarse)').matches
+    ? 'Följ stjärnorna. Använd Hoppa och Bromsa!'
+    : 'Mellanslag hoppar · Shift bromsar. Följ stjärnorna!');
 }
 
 function openDialog(type='pause') {
@@ -415,6 +432,7 @@ window.addEventListener('keydown',event=>{
   if(event.target instanceof HTMLButtonElement && ['Space','Enter'].includes(event.code)) return;
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(event.code)) event.preventDefault();
   if(event.repeat) return;
+  if(event.code==='Space' && game.state==='playing') jumpQueued = true;
   if(event.code==='Escape') togglePause();
   if(event.code==='KeyR' && ['playing','paused','won'].includes(game.state)) restart();
   if(event.code==='Enter' && game.state==='intro') start();
@@ -425,16 +443,22 @@ function autoPause() {clearInput();if(game.state==='playing') {game.pause();open
 window.addEventListener('blur',autoPause);
 document.addEventListener('visibilitychange',()=>{if(document.hidden) autoPause();});
 window.addEventListener('resize',()=>{if(renderer) resize();});
-document.querySelectorAll('[data-direction],#touch-brake').forEach(button=>{
-  const direction=button.dataset.direction||'brake';
+document.querySelectorAll('[data-direction],#touch-brake,#touch-jump').forEach(button=>{
+  const direction=button.dataset.direction||(button.id==='touch-jump'?'jump':'brake');
   button.addEventListener('pointerdown',event=>{
     event.preventDefault();button.setPointerCapture(event.pointerId);
+    if(direction==='jump' && game.state==='playing') jumpQueued = true;
     touch.add(direction);button.classList.add('active');
   });
   const release=()=>{touch.delete(direction);button.classList.remove('active');};
   button.addEventListener('pointerup',release);
   button.addEventListener('pointercancel',release);
   button.addEventListener('lostpointercapture',release);
+  if (direction === 'jump') button.addEventListener('click', event => {
+    // Keyboard and assistive activation use click detail 0. Pointer presses
+    // already jump on pointerdown and must not jump again on release.
+    if (event.detail === 0 && game.state === 'playing') jumpQueued = true;
+  });
 });
 
 try { setupScene(); } catch(error) {

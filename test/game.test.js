@@ -235,3 +235,96 @@ test('time formatting crosses minute boundary', () => {
   assert.equal(formatTime(0), '00:00');
   assert.equal(formatTime(65.9), '01:05');
 });
+
+test('jump launches the ball, lands, and requires a new press for another jump', () => {
+  const game = freshGame();
+  game.start();
+  run(game, 0.3);
+  assert.equal(game.grounded, true);
+  const events = run(game, 0.25, { jump: true });
+  assert.equal(events.filter(e => e.type === 'jump').length, 1);
+  assert.ok(game.ball.position.y > RADIUS + 1, 'Jump should visibly lift the ball.');
+  assert.equal(game.grounded, false);
+  const held = run(game, 1.5, { jump: true });
+  assert.equal(held.filter(e => e.type === 'jump').length, 0);
+  assert.equal(game.grounded, true);
+  assert.ok(Math.abs(game.ball.position.y - RADIUS) < 0.03);
+  run(game, dt, { jump: false });
+  assert.ok(run(game, dt, { jump: true }).some(e => e.type === 'jump'));
+});
+
+test('an additional press while airborne cannot double jump', () => {
+  const game = freshGame();
+  game.start();
+  run(game, 0.3);
+  run(game, dt, { jump: true });
+  run(game, 0.1);
+  const velocity = game.ball.velocity.y;
+  assert.equal(run(game, dt, { jump: true }).filter(e => e.type === 'jump').length, 0);
+  assert.ok(game.ball.velocity.y < velocity);
+  assert.equal(run(game, 1.5, { jump: true }).filter(e => e.type === 'jump').length, 0);
+  assert.equal(game.grounded, true);
+});
+
+test('a quick tap before the first landing is buffered instead of lost', () => {
+  const game = freshGame();
+  game.start();
+  const events = run(game, dt, { jumpPressed: true });
+  events.push(...run(game, 0.2));
+  assert.equal(events.filter(e => e.type === 'jump').length, 1);
+  assert.ok(game.ball.position.y > RADIUS + 0.5);
+});
+
+test('there is no jump support in the void and respawning does not auto-jump', () => {
+  const game = freshGame();
+  game.start();
+  run(game, 0.3);
+  game.placeBall(100, game.level.spawn.z);
+  assert.equal(run(game, 0.3, { jump: true }).filter(e => e.type === 'jump').length, 0);
+  assert.ok(game.ball.position.y < 0);
+  game.ball.position.y = -10;
+  const respawn = run(game, dt, { jump: true });
+  assert.ok(respawn.some(e => e.type === 'fall'));
+  assert.equal(run(game, 1, { jump: true }).filter(e => e.type === 'jump').length, 0);
+  assert.equal(game.grounded, true);
+  run(game, dt);
+  assert.ok(run(game, dt, { jump: true }).some(e => e.type === 'jump'));
+});
+
+test('pause discards a pending jump and new courses reset jumping state', () => {
+  const game = freshGame();
+  game.start();
+  // Initial spawn is just above the ground, so this press is pending.
+  run(game, dt, { jumpPressed: true });
+  game.pause();
+  const y = game.ball.position.y;
+  assert.equal(run(game, 1, { jump: true }).filter(e => e.type === 'jump').length, 0);
+  assert.equal(game.ball.position.y, y);
+  game.resume();
+  assert.equal(run(game, 0.5).filter(e => e.type === 'jump').length, 0);
+  run(game, dt, { jump: true });
+  game.newLevel();
+  assert.equal(game.jumpBuffer, 0);
+  assert.equal(game.jumpHeld, false);
+  assert.equal(game.grounded, false);
+  assert.equal(game.ball.velocity.y, 0);
+});
+
+test('jumping clears a bar that blocks rolling along the same path', () => {
+  const positions = [];
+  for (const jump of [false, true]) {
+    const game = freshGame();
+    game.start();
+    const bar = game.level.obstacles[0];
+    game.bars[0].angularVelocity.setZero();
+    game.bars[0].quaternion.set(0, 0, 0, 1);
+    game.placeBall(bar.x, bar.z + 2);
+    run(game, 0.2);
+    game.ball.velocity.z = -5;
+    run(game, 0.6, { up: true, jump });
+    positions.push(game.ball.position.z - bar.z);
+    assert.equal(game.falls, 0);
+  }
+  assert.ok(positions[0] > 0.7, `Rolling should be blocked by the bar: ${positions[0]}`);
+  assert.ok(positions[1] < -1.2, `Jumping should clear the bar: ${positions[1]}`);
+});
