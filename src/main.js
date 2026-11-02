@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { Game, RADIUS, platforms, starLocations, checkpoints, obstacles, goal, formatTime } from './game.js';
+import { Game, RADIUS, formatTime } from './game.js';
+import { onPlatform } from './level.js';
 import './style.css';
 
 const $ = (id) => document.getElementById(id);
-const game = new Game();
+export const game = new Game();
 const keys = new Set();
 const touch = new Set();
 const fixedStep = 1 / 120;
@@ -12,18 +13,18 @@ let lastTime = 0;
 let toastTimeout;
 let soundEnabled = false;
 let audio;
-let scene, camera, renderer, ballMesh, ballShadow;
+let scene, camera, renderer, ballMesh, ballShadow, courseGroup, sun;
 let stars = [], barMeshes = [], checkpointMeshes = [];
 let particles = [];
 let best = 0;
-try { best = Number(localStorage.getItem('boll-best')) || 0; } catch { /* Storage is optional. */ }
-if (best) $('best').textContent = `PERSONBÄSTA ${formatTime(best)} ↗`;
+try { best = Number(localStorage.getItem('boll-longest-journey')) || 0; } catch { /* Storage is optional. */ }
+if (best) $('best').textContent = `LÄNGSTA RESA: ${best} ${best === 1 ? 'BANA' : 'BANOR'}`;
 
 const palette = { grass: 0xc2d0a0, side: 0xa2b38b, cream: 0xf7f4db, orange: 0xed8064, wood: 0xe6ca9f, dark: 0x4b6550, star: 0xe7b956 };
 const material = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.78, ...extra });
 const mat = Object.fromEntries(Object.entries(palette).map(([key, color]) => [key, material(color)]));
 
-function mesh(geometry, material, position, parent = scene) {
+function mesh(geometry, material, position, parent = courseGroup ?? scene) {
   const obj = new THREE.Mesh(geometry, material);
   obj.position.set(...position);
   obj.castShadow = true;
@@ -42,14 +43,14 @@ function cloud(x, y, z, scale) {
     puff.scale.y = 0.65;
     puff.castShadow = false;
   });
-  group.position.set(x,y,z); group.scale.setScalar(scale); scene.add(group);
+  group.position.set(x,y,z); group.scale.setScalar(scale); courseGroup.add(group);
 }
 
 function tree(x, z, size = 1) {
   const group = new THREE.Group();
   mesh(new THREE.CylinderGeometry(.08, .12, 1, 6), mat.wood, [0,.5,0], group);
   mesh(new THREE.IcosahedronGeometry(.65, 1), mat.side, [0,1.35,0], group).scale.set(.8,1.3,.8);
-  group.position.set(x,0,z); group.scale.setScalar(size); scene.add(group);
+  group.position.set(x,0,z); group.scale.setScalar(size); courseGroup.add(group);
 }
 
 function starShape() {
@@ -64,34 +65,35 @@ function starShape() {
   return new THREE.ExtrudeGeometry(shape,{depth:.13,bevelEnabled:true,bevelThickness:.05,bevelSize:.04,bevelSegments:2,steps:1});
 }
 
-function setupScene() {
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xe9f0e7);
-  scene.fog = new THREE.FogExp2(0xe9f0e7, .009);
-  camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, .1, 220);
-  camera.position.set(15, 24, 29);
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
-  $('scene').appendChild(renderer.domElement);
-  renderer.domElement.tabIndex = 0;
-  renderer.domElement.setAttribute('aria-label', 'Styr bollen med piltangenter eller WASD. Mellanslag bromsar, Esc pausar.');
-  scene.add(new THREE.HemisphereLight(0xfffff2, 0x89a798, 1.9));
-  const sun = new THREE.DirectionalLight(0xfff2d8, 2.4);
-  sun.position.set(-14, 30, 14);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048,2048);
-  Object.assign(sun.shadow.camera, {left:-24,right:24,top:40,bottom:-40,near:1,far:110});
-  sun.shadow.bias = -.0005;
-  sun.shadow.normalBias = .035;
-  sun.target.position.set(0,0,-20);
-  scene.add(sun,sun.target);
-
+function buildLevelView() {
+  if (courseGroup) {
+    const geometries = new Set();
+    const materials = new Set();
+    const shared = new Set(Object.values(mat));
+    courseGroup.traverse(object => {
+      if (object.geometry) geometries.add(object.geometry);
+      const list = Array.isArray(object.material) ? object.material : [object.material];
+      for (const item of list) if (item && !shared.has(item)) materials.add(item);
+    });
+    scene.remove(courseGroup);
+    for (const geometry of geometries) geometry.dispose();
+    for (const item of materials) item.dispose();
+  }
+  for (const particle of particles) {
+    scene.remove(particle.mesh);
+    particle.mesh.geometry.dispose();
+  }
+  particles = [];
+  courseGroup = new THREE.Group();
+  scene.add(courseGroup);
+  const { platforms, starLocations, obstacles, checkpoints, goal, number, seed } = game.level;
+  const label = String(number).padStart(2, '0');
+  $('level-number').textContent = label;
+  $('course-number').textContent = `BANA ${label}`;
+  $('star-total').textContent = ` / ${starLocations.length}`;
+  $('intro-summary').textContent = `En ny väg genom himlen, varje gång. Samla alla ${starLocations.length} stjärnor och hitta till mål.`;
+  $('app').dataset.seed = seed;
+  $('app').dataset.level = number;
   platforms.forEach((p, i) => {
     if (p.kind === 'island') {
       box(p.w, .7, p.d, mat.side, [p.x,-.55,p.z]);
@@ -107,14 +109,18 @@ function setupScene() {
         pebble.scale.set(1,.6,.8);
       }
     } else {
-      box(p.w,.55,p.d,mat.wood,[p.x,-.3,p.z]);
-      const planks = Math.round(p.d/.55);
-      for (let j=0;j<planks;j++) {
-        box(p.w+.08,.07,.46, j%3===0 ? mat.cream : mat.wood,[p.x,.01,p.z-p.d/2+(j+.5)*p.d/planks]);
+      const bridge = new THREE.Group();
+      bridge.position.set(p.x, 0, p.z);
+      bridge.rotation.y = p.angle;
+      courseGroup.add(bridge);
+      box(p.w, .55, p.d, mat.wood, [0, -.3, 0], bridge);
+      const planks = Math.round(p.d / .55);
+      for (let j = 0; j < planks; j++) {
+        box(p.w + .08, .07, .46, j % 3 === 0 ? mat.cream : mat.wood,
+          [0, .01, -p.d / 2 + (j + .5) * p.d / planks], bridge);
       }
-      // Low visual edging, deliberately open: keeping your balance is the challenge.
-      for (const sign of [-1,1]) {
-        box(.09,.12,p.d,mat.cream,[p.x+sign*(p.w/2-.04),.1,p.z]);
+      for (const sign of [-1, 1]) {
+        box(.09, .12, p.d, mat.cream, [sign * (p.w / 2 - .04), .1, 0], bridge);
       }
     }
   });
@@ -143,7 +149,7 @@ function setupScene() {
     [-1,1].forEach(sign=>box(.22,.58,.54,mat.cream,[sign*(o.length/2-.3),0,0],group));
     mesh(new THREE.CylinderGeometry(.33,.33,.8,16),mat.cream,[0,-.05,0],group);
     group.position.set(o.x,.65,o.z);
-    scene.add(group);
+    courseGroup.add(group);
     return group;
   });
 
@@ -164,7 +170,45 @@ function setupScene() {
   for(let x=-1.25;x<=1.25;x+=.5) for(let z=-.5;z<=.5;z+=.5) {
     box(.5,.025,.5,(Math.round(x*2+2.5)+Math.round(z*2+1))%2 ? mat.cream : mat.side,[x,.03,z],gate);
   }
-  gate.position.set(goal.x,0,goal.z);scene.add(gate);
+  gate.position.set(goal.x,0,goal.z);courseGroup.add(gate);
+
+  const salt = Number.parseInt(game.level.seed.slice(0, 8), 16) || 0;
+  const random = (seed) => { const value = Math.sin(seed * 127.1 + salt) * 43758.5453; return value - Math.floor(value); };
+  const length = game.level.spawn.z - game.level.goal.z + 30;
+  for(let i=0;i<30;i++) cloud((random(i)-.5)*90,-7-random(i+40)*14,20-random(i+60)*length,.7+random(i+90)*1.6);
+  for(let i=0;i<9;i++) {
+    const rock=mesh(new THREE.IcosahedronGeometry(1.5+random(i+20)*2,0),mat.side,[(random(i+100)-.5)*65,-15,10-i*11]);
+    rock.scale.y=2;
+  }
+}
+
+function setupScene() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xe9f0e7);
+  scene.fog = new THREE.FogExp2(0xe9f0e7, .009);
+  camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, .1, 220);
+  camera.position.set(15, 24, 29);
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  $('scene').appendChild(renderer.domElement);
+  renderer.domElement.tabIndex = 0;
+  renderer.domElement.setAttribute('aria-label', 'Styr bollen med piltangenter eller WASD. Mellanslag bromsar, Esc pausar.');
+  scene.add(new THREE.HemisphereLight(0xfffff2, 0x89a798, 1.9));
+  sun = new THREE.DirectionalLight(0xfff2d8, 2.4);
+  sun.position.set(-14, 30, 14);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048,2048);
+  Object.assign(sun.shadow.camera, {left:-24,right:24,top:40,bottom:-40,near:1,far:110});
+  sun.shadow.bias = -.0005;
+  sun.shadow.normalBias = .035;
+  sun.target.position.set(0,0,-20);
+  scene.add(sun,sun.target);
 
   const ballGroup = new THREE.Group();
   mesh(new THREE.SphereGeometry(RADIUS,40,28),material(palette.orange,{roughness:.32}),[0,0,0],ballGroup);
@@ -172,15 +216,10 @@ function setupScene() {
   stripe.rotation.z = .3;
   ballMesh = ballGroup;
   scene.add(ballMesh);
-  ballShadow = mesh(new THREE.CircleGeometry(.65,32),new THREE.MeshBasicMaterial({color:0x3f5132,transparent:true,opacity:.16,depthWrite:false}),[0,.06,7]);
+  ballShadow = mesh(new THREE.CircleGeometry(.65,32),new THREE.MeshBasicMaterial({color:0x3f5132,transparent:true,opacity:.16,depthWrite:false}),[0,.06,7],scene);
   ballShadow.rotation.x = -Math.PI/2;
   ballShadow.castShadow = false;
-  const random = (seed) => { const value=Math.sin(seed*127.1+311.7)*43758.5453;return value-Math.floor(value); };
-  for(let i=0;i<30;i++) cloud((random(i)-.5)*90,-7-random(i+40)*14,20-random(i+60)*110,.7+random(i+90)*1.6);
-  for(let i=0;i<9;i++) {
-    const rock=mesh(new THREE.IcosahedronGeometry(1.5+random(i+20)*2,0),mat.side,[(random(i+100)-.5)*65,-15,10-i*11]);
-    rock.scale.y=2;
-  }
+  buildLevelView();
   resize();
   renderer.render(scene,camera);
   $('loading').hidden = true;
@@ -208,7 +247,7 @@ function tone(frequency, duration=.12, volume=.05, delay=0) {
 
 function burst(position) {
   for(let i=0;i<18;i++) {
-    const particle=mesh(new THREE.IcosahedronGeometry(.07,0),i%2 ? mat.star : mat.cream,[position.x,position.y,position.z]);
+    const particle=mesh(new THREE.IcosahedronGeometry(.07,0),i%2 ? mat.star : mat.cream,[position.x,position.y,position.z],scene);
     particle.castShadow=false;
     particles.push({mesh:particle,velocity:new THREE.Vector3((Math.random()-.5)*4,2+Math.random()*3,(Math.random()-.5)*4),life:1});
   }
@@ -219,17 +258,20 @@ function processEvents(events) {
     if(event.type==='star') {
       burst(stars[event.index].star.position);
       tone(660+game.collected.size*65);tone(990+game.collected.size*65,.18,.04,.07);
-      if(game.collected.size===7) toast('Alla stjärnor! Rulla genom målporten.');
+      if(game.collected.size===game.level.starLocations.length) toast('Alla stjärnor! Rulla genom målporten.');
     }
     if(event.type==='checkpoint') { toast('Checkpoint! Härifrån fortsätter du om du faller.');tone(520,.15);tone(780,.2,.04,.12); }
     if(event.type==='fall') {toast('Oj då! Tillbaka på banan. Stjärnorna är kvar.');tone(220,.3);}
-    if(event.type==='locked') toast(`Samla ${7-game.collected.size} stjärn${game.collected.size===6 ? 'a' : 'or'} till innan du går i mål.`);
+    if(event.type==='locked') {
+      const remaining = game.level.starLocations.length - game.collected.size;
+      toast(`Samla ${remaining} ${remaining === 1 ? 'stjärna' : 'stjärnor'} till innan du går i mål.`);
+    }
     if(event.type==='win') {
       burst(ballMesh.position);
-      if(!best || game.elapsed<best) {
-        best=game.elapsed;
-        try { localStorage.setItem('boll-best',String(best)); } catch { /* Best time is optional. */ }
-        $('best').textContent=`PERSONBÄSTA ${formatTime(best)} ↗`;
+      if(game.level.number > best) {
+        best=game.level.number;
+        try { localStorage.setItem('boll-longest-journey',String(best)); } catch { /* Saving progress is optional. */ }
+        $('best').textContent=`LÄNGSTA RESA: ${best} ${best === 1 ? 'BANA' : 'BANOR'}`;
       }
       [523,659,784,1047].forEach((f,i)=>tone(f,.3,.06,i*.12));
       openDialog('win');
@@ -251,7 +293,7 @@ function frame(time) {
   ballMesh.quaternion.copy(game.ball.quaternion);
   ballMesh.visible=game.respawnTimer===0 || Math.floor(game.respawnTimer*12)%2===0;
   ballShadow.position.set(p.x,.065,p.z);
-  ballShadow.visible=p.y>-1 && platforms.some(t=>Math.abs(p.x-t.x)<t.w/2 && Math.abs(p.z-t.z)<t.d/2);
+  ballShadow.visible=p.y>-1 && game.level.platforms.some(t=>onPlatform(t,p.x,p.z));
   ballShadow.material.opacity=.17/Math.max(1,p.y);
   stars.forEach(({star,ring},i)=>{
     star.visible=ring.visible=!game.collected.has(i);
@@ -276,7 +318,9 @@ function frame(time) {
   camera.lookAt(lookAt);
   $('timer').textContent=formatTime(game.elapsed);
   $('stars').textContent=game.collected.size;
-  $('progress').style.height=`${THREE.MathUtils.clamp((7-p.z)/62.5,0,1)*100}%`;
+  $('progress').style.height=`${THREE.MathUtils.clamp((game.level.spawn.z-p.z)/(game.level.spawn.z-game.level.goal.z),0,1)*100}%`;
+  sun.position.set(p.x - 14, 30, p.z + 14);
+  sun.target.position.set(p.x, 0, p.z - 18);
   renderer.render(scene,camera);
   requestAnimationFrame(frame);
 }
@@ -301,10 +345,10 @@ function openDialog(type='pause') {
   $('dialog').hidden=false;
   const win=type==='win';
   $('dialog-symbol').textContent=win?'✦':'Ⅱ';
-  $('dialog-kicker').textContent=win?'SJU STJÄRNOR. ETT FINT FLOW.':'TA ETT ANDETAG';
+  $('dialog-kicker').textContent=win?`BANA ${game.level.number} AVKLARAD`:'TA ETT ANDETAG';
   $('dialog-title').textContent=win?'Du nådde hela vägen!':'En liten paus.';
-  $('dialog-text').textContent=win?`7 av 7 stjärnor på ${formatTime(game.elapsed)}.\n${game.falls===0?'Och inte ett enda fall. Snyggt!':`${game.falls} fall, men du gav inte upp.`}`:'Molnen finns kvar när du är redo.';
-  $('resume').innerHTML=win?'En runda till <span>↗</span>':'Fortsätt rulla <span>↗</span>';
+  $('dialog-text').textContent=win?`${game.collected.size} av ${game.level.starLocations.length} stjärnor på ${formatTime(game.elapsed)}.\n${game.falls===0?'Och inte ett enda fall. Snyggt!':`${game.falls} fall, men du gav inte upp.`}`:'Molnen finns kvar när du är redo.';
+  $('resume').innerHTML=win?'Nästa bana <span>↗</span>':'Fortsätt rulla <span>↗</span>';
   $('restart-dialog').hidden=win;
   $('resume').focus();
 }
@@ -320,9 +364,14 @@ function togglePause() {
   else if(game.state==='paused') closeDialog();
 }
 
-function restart() {
+function restart(advance = false) {
   clearInput();
-  game.reset();game.start();
+  if (advance) {
+    if (!game.nextLevel()) return;
+  } else game.newLevel();
+  game.start();
+  buildLevelView();
+  accumulator = 0;
   $('dialog').hidden=true;
   $('intro').classList.add('dismissed');$('intro').inert=true;
   $('app').classList.add('playing');
@@ -330,7 +379,7 @@ function restart() {
   renderer?.domElement.focus({preventScroll:true});
   checkpointMeshes.forEach(ring=>ring.material.color.setHex(0xf7f4db));
   camera.position.set(0,12,24);
-  toast('En ny runda. Nu rullar vi!');
+  toast(advance ? `Bana ${game.level.number}! En helt ny väg väntar.` : 'En ny bana är redo. Nu rullar vi!');
 }
 
 function resize() {
@@ -342,9 +391,9 @@ function resize() {
 $('play').addEventListener('click',start);
 $('pause').disabled=true;
 $('pause').addEventListener('click',togglePause);
-$('restart').addEventListener('click',restart);
-$('restart-dialog').addEventListener('click',restart);
-$('resume').addEventListener('click',()=>game.state==='won'?restart():closeDialog());
+$('restart').addEventListener('click',()=>restart());
+$('restart-dialog').addEventListener('click',()=>restart());
+$('resume').addEventListener('click',()=>game.state==='won'?restart(true):closeDialog());
 $('sound').addEventListener('click',async()=>{
   try {
     audio??=new (window.AudioContext||window.webkitAudioContext)();

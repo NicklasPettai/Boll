@@ -14,7 +14,7 @@
       <div class="vignette"></div>
       <header class="topbar">
         <a class="brand" href="./index.html" aria-label="Boll, startsida"><span class="brand-ball"></span>boll<span class="brand-dot">.</span></a>
-        <div class="level-label"><span class="live-dot"></span> MOLNBANAN <span class="level-number">01</span></div>
+        <div class="level-label"><span class="live-dot"></span> MOLNBANAN <span id="level-number" class="level-number">01</span></div>
         <div class="top-actions">
           <button id="sound" class="icon-button" aria-label="Slå på ljud" title="Ljud på/av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path id="sound-waves" d="m16 9 6 6m0-6-6 6"/></svg></button>
           <button id="pause" class="icon-button" aria-label="Pausa spelet" title="Pausa (Esc)"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="5" width="3" height="14" rx="1"/><rect x="14" y="5" width="3" height="14" rx="1"/></svg></button>
@@ -22,7 +22,7 @@
       </header>
 
       <section class="scoreboard" aria-label="Spelstatus">
-        <div class="stat"><span class="stat-icon star-icon">✦</span><div><span class="stat-label">STJÄRNOR</span><span class="stat-value"><span id="stars">0</span><span class="stat-total"> / 7</span></span></div></div>
+        <div class="stat"><span class="stat-icon star-icon">✦</span><div><span class="stat-label">STJÄRNOR</span><span class="stat-value"><span id="stars">0</span><span id="star-total" class="stat-total"></span></span></div></div>
         <span class="stat-divider"></span>
         <div class="stat"><svg class="stat-icon clock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="13" r="8"/><path d="M12 8v5l3 2M9 2h6M12 2v3"/></svg><div><span class="stat-label">TID</span><span id="timer" class="stat-value">00:00</span></div></div>
       </section>
@@ -30,9 +30,9 @@
       <aside class="journey" aria-label="Framsteg"><span id="progress-label">START</span><div class="journey-track"><span id="progress"></span></div><span class="finish-icon">⚑</span></aside>
 
       <section id="intro" class="intro-panel">
-        <div class="eyebrow"><span></span> ETT LITET ÄVENTYR BLAND MOLNEN</div>
+        <div class="eyebrow"><span></span> EN NY VÄG. VARJE GÅNG.</div>
         <h1>Håll balansen.<br/><em>Hitta ditt flow.</em></h1>
-        <p>En boll, sju stjärnor och en väg genom himlen.<br class="desktop-break"/> Rulla försiktigt. Det är en bit ner.</p>
+        <p id="intro-summary">En ny väg genom himlen, varje gång. Samla stjärnorna och hitta till mål.</p>
         <button id="play" class="primary-button">Nu rullar vi <span>↗</span></button>
         <div class="intro-hint"><span class="tiny-key">↑</span><span class="tiny-key">←</span><span class="tiny-key">↓</span><span class="tiny-key">→</span><span>eller WASD för att styra</span></div>
       </section>
@@ -46,14 +46,14 @@
           <h2 id="dialog-title">En liten paus.</h2>
           <p id="dialog-text">Molnen finns kvar när du är redo.</p>
           <button id="resume" class="primary-button">Fortsätt rulla <span>↗</span></button>
-          <button id="restart-dialog" class="text-button">Börja om från start</button>
+          <button id="restart-dialog" class="text-button">Generera en ny bana</button>
         </div>
       </section>
 
       <footer class="bottom-bar">
-        <div class="course-note"><span class="course-number">01 — 01</span><span>Små steg. Stora höjder.</span></div>
-        <div class="controls-legend"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Rulla</span><span><kbd>SPACE</kbd> Bromsa</span><button id="restart" title="Börja om (R)"><kbd>R</kbd> Börja om</button></div>
-        <span id="best" class="best-score">TA DET I DIN TAKT <span>↗</span></span>
+        <div class="course-note"><span id="course-number" class="course-number">BANA 01</span><span>Små steg. Stora höjder.</span></div>
+        <div class="controls-legend"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Rulla</span><span><kbd>SPACE</kbd> Bromsa</span><button id="restart" title="Generera en ny bana (R)"><kbd>R</kbd> Ny bana</button></div>
+        <span id="best" class="best-score">EN NY VÄG VARJE GÅNG <span>↗</span></span>
       </footer>
 
       <div id="touch-controls" class="touch-controls" aria-label="Pekstyrning">

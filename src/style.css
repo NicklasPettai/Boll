@@ -8,3 +8,4 @@
 .primary-button span:after,.best-score>span:after{content:"";position:absolute;width:8px;height:8px;right:1px;top:1px;border-right:1.5px solid currentColor;border-top:1.5px solid currentColor}
 .finish-icon{font-size:0;position:relative;width:15px;height:20px;border-left:1.5px solid #7b9180;transform:translateX(4px)}
 .finish-icon:after{content:"";position:absolute;left:0;top:1px;width:12px;height:9px;background:#7b9180;clip-path:polygon(0 0,100% 15%,100% 100%,0 80%)}
+@media(max-width:640px){.level-number{display:inline-block;font-size:7px;padding:3px 4px;margin-left:0}}

@@ -1,6 +1,8 @@
 # Boll
 
-Ett litet 3D-äventyr bland molnen. Styr en boll över svävande öar, samla alla sju stjärnor och rulla genom målporten. Roterande hinder, smala broar och checkpoints hjälper till att göra vägen dit till en utmaning.
+Ett litet 3D-äventyr bland molnen med automatiskt genererade banor. Styr en boll över svävande öar, samla banans stjärnor och rulla genom målporten. Varje ny omgång får en ny sträckning med varierande öar, vinklade broar och roterande hinder.
+
+Spela webbversionen på **https://nicklaspettai.github.io/Boll/**.
 
 ## Kom igång
 
@@ -20,9 +22,19 @@ npm run dev
 | Piltangenter / WASD | Rulla |
 | Mellanslag | Bromsa |
 | Esc | Pausa / fortsätt |
-| R | Börja om hela banan |
+| R | Generera en ny bana på samma bannummer |
 
-På pekskärm visas riktningsknappar och broms när spelet startar. Stjärnor behålls efter fall och bollen återvänder till senaste checkpoint. Samla alla sju innan du går i mål. Rekordtid sparas lokalt i webbläsaren. Ljud aktiveras med högtalarknappen.
+På pekskärm visas riktningsknappar och broms när spelet startar. Pausmenyn har också knappen **Generera en ny bana**. Stjärnor och banans utformning behålls efter fall och bollen återvänder till senaste checkpoint. Samla alla stjärnor innan du går i mål; antalet visas i spelstatusen. Ljud aktiveras med högtalarknappen.
+
+## Genererade banor
+
+- En ny slumpad bana skapas vid omladdning, med R eller via pausmenyn.
+- När du når mål skapar **Nästa bana** en ny bana och ökar bannumret.
+- Banorna har 4–6 öar och 7–11 stjärnor. Senare banor blir något längre och broarna lite smalare, med fasta gränser för svårighetsgraden.
+- Broarna överlappar öarna och det finns en sammanhängande väg runt varje hinders svepyta. Stjärnor och checkpoints ligger längs den säkra vägen.
+- Längsta resan (antal klarade banor i en omgång) sparas lokalt. Tider från olika slumpbanor jämförs inte som rekord.
+
+Generatorn finns i `src/level.js`. Varje bana har ett slumpfrö så att fel kan reproduceras med exempelvis `new Game({ seed: 'exempel', number: 3 })`. Testerna kontrollerar geometrin hos 2 000 banor och kör 32 olika banor genom fysikmotorn med vanlig riktningsstyrning hela vägen till mål.
 
 ## Bygg och verifiera
 
@@ -32,7 +44,7 @@ npm run build
 npm run preview
 ```
 
-Webbläsartester för rendering, spelstart, stjärninsamling, paus, omstart och pekstyrning:
+Webbläsartester för rendering, spelstart, stjärninsamling, paus, nya banor, övergång till nästa bana och pekstyrning:
 
 ```sh
 # I molnmiljön finns Chromium på /usr/bin/chromium.
@@ -45,10 +57,10 @@ Webbläsaren behöver WebGL. Molnmiljöns tester använder mjukvarurendering i C
 ## Windows-app (.exe)
 
 Den portabla versionen för **64-bitars Windows 10/11** finns efter paketering i
-`release/Boll-0.1.0-Windows-x64.exe`. Kopiera filen till datorn och dubbelklicka.
+`release/Boll-0.2.0-Windows-x64.exe`. Kopiera filen till datorn och dubbelklicka.
 Ingen installation, Node.js, separat webbserver eller internetanslutning behövs.
 Första starten kan ta en stund eftersom appen packar upp sina resurser i en tillfällig katalog.
-Rekordtiden sparas i användarens lokala appdata mellan starter.
+Längsta resan sparas i användarens lokala appdata mellan starter.
 
 F11 växlar helskärm och Alt+F4 avslutar. Övrig styrning är samma som i webbversionen.
 Appen är inte digitalt signerad; Windows kan därför visa en varning om okänd utgivare.
