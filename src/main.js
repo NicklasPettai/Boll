@@ -215,7 +215,7 @@ function setupScene() {
   scene.add(sun,sun.target);
 
   const ballGroup = new THREE.Group();
-  mesh(new THREE.SphereGeometry(RADIUS,40,28),material(palette.orange,{roughness:.32}),[0,0,0],ballGroup);
+  mesh(new THREE.SphereGeometry(RADIUS,40,28),material(0x8b4dd0,{roughness:.32}),[0,0,0],ballGroup);
   const stripe = mesh(new THREE.SphereGeometry(RADIUS+.002,40,12,0,Math.PI*2,Math.PI*.42,Math.PI*.16),material(0xfff0d4,{roughness:.4}),[0,0,0],ballGroup);
   stripe.rotation.z = .3;
   ballMesh = ballGroup;
