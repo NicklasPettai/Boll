@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import { Game, RADIUS, formatTime } from './game.js';
 import { onPlatform } from './level.js';
+import { ChaseCamera } from './chase-camera.js';
 import './style.css';
 
 const $ = (id) => document.getElementById(id);
 export const game = new Game();
+export const chaseCamera = new ChaseCamera();
 const keys = new Set();
 const touch = new Set();
 let jumpQueued = false;
@@ -15,6 +17,7 @@ let toastTimeout;
 let soundEnabled = false;
 let audio;
 let scene, camera, renderer, ballMesh, ballShadow, courseGroup, sun;
+export { camera };
 let stars = [], barMeshes = [], checkpointMeshes = [];
 let particles = [];
 let best = 0;
@@ -221,6 +224,7 @@ function setupScene() {
   ballShadow.rotation.x = -Math.PI/2;
   ballShadow.castShadow = false;
   buildLevelView();
+  $('app').dataset.camera = 'overview';
   resize();
   renderer.render(scene,camera);
   $('loading').hidden = true;
@@ -263,7 +267,11 @@ function processEvents(events) {
       if(game.collected.size===game.level.starLocations.length) toast('Alla stjärnor! Rulla genom målporten.');
     }
     if(event.type==='checkpoint') { toast('Checkpoint! Härifrån fortsätter du om du faller.');tone(520,.15);tone(780,.2,.04,.12); }
-    if(event.type==='fall') {toast('Oj då! Tillbaka på banan. Stjärnorna är kvar.');tone(220,.3);}
+    if(event.type==='fall') {
+      const bridge = game.checkpoint >= 0 ? game.level.bridges[game.checkpoint + 1] : null;
+      resetChaseCamera(bridge ? { x: bridge.to.x - bridge.from.x, z: bridge.to.z - bridge.from.z } : undefined);
+      toast('Oj då! Tillbaka på banan. Stjärnorna är kvar.');tone(220,.3);
+    }
     if(event.type==='locked') {
       const remaining = game.level.starLocations.length - game.collected.size;
       toast(`Samla ${remaining} ${remaining === 1 ? 'stjärna' : 'stjärnor'} till innan du går i mål.`);
@@ -282,7 +290,7 @@ function processEvents(events) {
 }
 
 function getInput() {
-  return {
+  const input = {
     up: keys.has('KeyW') || keys.has('ArrowUp') || touch.has('up'),
     down: keys.has('KeyS') || keys.has('ArrowDown') || touch.has('down'),
     left: keys.has('KeyA') || keys.has('ArrowLeft') || touch.has('left'),
@@ -291,6 +299,20 @@ function getInput() {
     jump: keys.has('Space') || touch.has('jump'),
     jumpPressed: jumpQueued,
   };
+  return { ...input, ...chaseCamera.movement(input) };
+}
+
+function applyChaseCamera() {
+  const { position, target } = chaseCamera;
+  camera.position.set(position.x, position.y, position.z);
+  camera.lookAt(target.x, target.y, target.z);
+}
+
+function resetChaseCamera(direction) {
+  chaseCamera.reset(game.ball.position, direction, innerWidth < 641);
+  $('app').dataset.camera = 'third-person';
+  resize();
+  applyChaseCamera();
 }
 
 function frame(time) {
@@ -326,10 +348,13 @@ function frame(time) {
   });
   const intro=game.state==='intro';
   const mobile=innerWidth<641;
-  const target=intro ? new THREE.Vector3(mobile?12:15,mobile?25:26,mobile?25:28) : new THREE.Vector3(p.x,Math.max(0,p.y-RADIUS)+12,p.z+17);
-  camera.position.lerp(target,1-Math.exp(-dt*3));
-  const lookAt=intro ? new THREE.Vector3(mobile?0:-9,0,mobile?-9:-10) : new THREE.Vector3(p.x,0,p.z-4.5);
-  camera.lookAt(lookAt);
+  if (intro) {
+    camera.position.lerp(new THREE.Vector3(mobile?12:15,mobile?25:26,mobile?25:28),1-Math.exp(-dt*3));
+    camera.lookAt(mobile?0:-9,0,mobile?-9:-10);
+  } else if (game.state === 'playing') {
+    chaseCamera.update(p, game.ball.velocity, dt, mobile);
+    applyChaseCamera();
+  }
   $('timer').textContent=formatTime(game.elapsed);
   $('stars').textContent=game.collected.size;
   $('progress').style.height=`${THREE.MathUtils.clamp((game.level.spawn.z-p.z)/(game.level.spawn.z-game.level.goal.z),0,1)*100}%`;
@@ -347,6 +372,7 @@ function clearInput() {
 
 function start() {
   game.start();
+  resetChaseCamera();
   $('intro').classList.add('dismissed');
   $('intro').inert=true;
   $('app').classList.add('playing');
@@ -395,12 +421,13 @@ function restart(advance = false) {
   $('pause').disabled=false;
   renderer?.domElement.focus({preventScroll:true});
   checkpointMeshes.forEach(ring=>ring.material.color.setHex(0xf7f4db));
-  camera.position.set(0,12,24);
+  resetChaseCamera();
   toast(advance ? `Bana ${game.level.number}! En helt ny väg väntar.` : 'En ny bana är redo. Nu rullar vi!');
 }
 
 function resize() {
   camera.aspect=innerWidth/innerHeight;
+  camera.fov=game.state==='intro'?42:(innerWidth<641?60:54);
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
 }

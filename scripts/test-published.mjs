@@ -34,6 +34,7 @@ try {
       const seed = await page.locator('#app').getAttribute('data-seed');
       assert.ok(seed, 'The published page must contain the generated-course version.');
       await page.getByRole('button', { name: 'Nu rullar vi' }).click();
+      await expect(page.locator('#app')).toHaveAttribute('data-camera', 'third-person');
       if (mobile) {
         const forward = page.getByRole('button', { name: 'Rulla framåt' });
         await expect(forward).toBeVisible();

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Game, RADIUS, formatTime } from '../src/game.js';
 import { generateLevel, onPlatform } from '../src/level.js';
+import { ChaseCamera } from '../src/chase-camera.js';
 
 const dt = 1 / 120;
 const freshGame = () => new Game({ seed: 'regression-course' });
@@ -327,4 +328,111 @@ test('jumping clears a bar that blocks rolling along the same path', () => {
   }
   assert.ok(positions[0] > 0.7, `Rolling should be blocked by the bar: ${positions[0]}`);
   assert.ok(positions[1] < -1.2, `Jumping should clear the bar: ${positions[1]}`);
+});
+
+test('third-person camera starts low behind the ball and leaves more room on mobile', () => {
+  const ball = { x: 2, y: RADIUS, z: -8 };
+  const desktop = new ChaseCamera();
+  desktop.reset(ball);
+  assert.ok(Math.abs(desktop.position.x - ball.x) < 0.001);
+  assert.ok(desktop.position.z > ball.z + 5 && desktop.position.z < ball.z + 12);
+  assert.ok(desktop.position.y > ball.y + 2 && desktop.position.y < ball.y + 5);
+  assert.ok(desktop.target.z < ball.z, 'The view should include the route ahead.');
+  assert.ok(desktop.target.y >= ball.y);
+  const mobile = new ChaseCamera();
+  mobile.reset(ball, undefined, true);
+  assert.ok(mobile.position.z > desktop.position.z);
+  assert.ok(mobile.position.y > desktop.position.y);
+});
+
+test('third-person camera swings smoothly behind a turn instead of snapping sideways', () => {
+  const ball = { x: 0, y: RADIUS, z: 0 };
+  const camera = new ChaseCamera();
+  camera.reset(ball);
+  camera.update(ball, { x: 3, z: 0 }, 1 / 60);
+  assert.ok(camera.position.x < 0 && camera.position.x > -1, 'A turn should begin gradually.');
+  assert.ok(camera.position.z > 5, 'The first frame should remain near the previous view.');
+  for (let i = 0; i < 120; i++) camera.update(ball, { x: 3, z: 0 }, 1 / 60);
+  assert.ok(camera.position.x < ball.x - 6, 'The camera should end behind eastward travel.');
+  assert.ok(Math.abs(camera.position.z - ball.z) < 0.1);
+  assert.ok(camera.target.x > ball.x + 2);
+});
+
+test('camera takes the short turn across the heading wrap boundary', () => {
+  const ball = { x: 0, y: RADIUS, z: 0 };
+  const camera = new ChaseCamera();
+  camera.reset(ball, { x: 0.01, z: 1 });
+  for (let i = 0; i < 30; i++) {
+    camera.update(ball, { x: -0.02, z: 2 }, 1 / 60);
+    assert.ok(Math.abs(camera.position.x) < 0.3, 'A small heading change must not orbit around the ball.');
+    assert.ok(camera.position.z < -6);
+    assert.ok(camera.target.z > 2);
+  }
+});
+
+test('held direction stays straight while the camera turns and a new direction uses the current view', () => {
+  const ball = { x: 0, y: RADIUS, z: 0 };
+  const camera = new ChaseCamera();
+  camera.reset(ball);
+  const initial = camera.movement({ right: true });
+  assert.ok(initial.moveX > 0.999 && Math.abs(initial.moveZ) < 0.001);
+  for (let i = 0; i < 120; i++) {
+    camera.update(ball, { x: 2, z: 0 }, 1 / 60);
+    const held = camera.movement({ right: true, brake: i > 60 });
+    assert.ok(Math.abs(held.moveX - initial.moveX) < 0.001);
+    assert.ok(Math.abs(held.moveZ - initial.moveZ) < 0.001, 'Auto-follow must not turn a held direction into a circle.');
+  }
+  camera.movement({});
+  const forward = camera.movement({ up: true });
+  assert.ok(forward.moveX > 0.99, 'Forward after turning should follow the current east-facing view.');
+  assert.ok(Math.abs(forward.moveZ) < 0.02);
+});
+
+test('camera keeps its heading at rest and follows jumps without diving below the course on a fall', () => {
+  const ball = { x: 0, y: RADIUS, z: 0 };
+  const camera = new ChaseCamera();
+  camera.reset(ball, { x: 1, z: 0 });
+  const yaw = camera.yaw;
+  for (let i = 0; i < 120; i++) {
+    camera.update(ball, { x: i % 2 ? 0.05 : -0.05, y: 8, z: 0.03 }, 1 / 60);
+  }
+  assert.equal(camera.yaw, yaw, 'Tiny physics noise and vertical velocity should not spin the camera.');
+  const restHeight = camera.position.y;
+  for (let i = 0; i < 30; i++) camera.update({ ...ball, y: RADIUS + 1.5 }, { x: 0, y: 5, z: 0 }, 1 / 60);
+  assert.ok(camera.position.y > restHeight + 0.8);
+  assert.equal(camera.yaw, yaw);
+  for (let i = 0; i < 120; i++) camera.update({ ...ball, y: -12 }, { x: 0, y: -15, z: 0 }, 1 / 60);
+  assert.ok(camera.position.y >= RADIUS + 2.9, 'A falling ball must not drag the camera under the platforms.');
+  assert.ok(camera.target.y >= RADIUS);
+});
+
+test('camera reset snaps to the new spawn and refreshes even a still-held direction', () => {
+  const camera = new ChaseCamera();
+  camera.reset({ x: 0, y: RADIUS, z: 0 }, { x: 1, z: 0 });
+  assert.ok(camera.movement({ up: true }).moveX > 0.99);
+  const spawn = { x: 9, y: RADIUS, z: -80 };
+  camera.reset(spawn);
+  const forward = camera.movement({ up: true });
+  assert.ok(Math.abs(forward.moveX) < 0.001 && forward.moveZ < -0.999);
+  assert.ok(Math.abs(camera.position.x - spawn.x) < 0.001);
+  assert.ok(camera.position.z > spawn.z + 5 && camera.position.z < spawn.z + 12);
+  camera.reset(spawn, { x: 1, z: -1 }, true);
+  const checkpointForward = camera.movement({ up: true });
+  assert.ok(checkpointForward.moveX > 0.6 && checkpointForward.moveZ < -0.6);
+  assert.ok(camera.position.x < spawn.x && camera.position.z > spawn.z);
+});
+
+test('physics honors camera-space movement vectors and explicit zero vectors override direction keys', () => {
+  const game = freshGame();
+  const camera = new ChaseCamera();
+  camera.reset(game.ball.position, { x: 1, z: 0 });
+  game.start();
+  const startX = game.ball.position.x;
+  const startZ = game.ball.position.z;
+  run(game, 0.5, { up: true, ...camera.movement({ up: true }) });
+  assert.ok(game.ball.position.x > startX + 0.6, 'Forward in an east-facing view should physically move east.');
+  assert.ok(Math.abs(game.ball.position.z - startZ) < 0.05);
+  run(game, 0.4, { up: true, moveX: 0, moveZ: 0, brake: true });
+  assert.ok(Math.abs(game.ball.velocity.z) < 0.02, 'An explicit stop vector must not fall back to the up key.');
+  assert.equal(game.falls, 0);
 });

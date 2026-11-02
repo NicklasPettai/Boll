@@ -102,8 +102,8 @@ export class Game {
       this.jumpBuffer = 0;
       events.push({ type: 'jump' });
     }
-    let dx = Number(!!input.right) - Number(!!input.left);
-    let dz = Number(!!input.down) - Number(!!input.up);
+    let dx = input.moveX ?? (Number(!!input.right) - Number(!!input.left));
+    let dz = input.moveZ ?? (Number(!!input.down) - Number(!!input.up));
     const length = Math.hypot(dx, dz);
     if (length) { dx /= length; dz /= length; }
     const damping = Math.exp(-(input.brake ? 9 : 0.28) * dt);

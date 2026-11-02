@@ -25,6 +25,8 @@ npm run dev
 | Esc | Pausa / fortsätt |
 | R | Generera en ny bana på samma bannummer |
 
+Kameran följer bollen bakifrån och svänger mjukt efter färdriktningen. När du väljer en ny riktning styr du i förhållande till kameran; håll kvar tangenten för att fortsätta åt samma håll. Kameran behåller en stabil horisont när bollen rullar och hoppar.
+
 På pekskärm visas riktningsknappar, **Hoppa** och **Bromsa** när spelet startar. Bollen måste ha kontakt med en yta för att hoppa, och en nedhållen hoppknapp ger ett hopp. Släpp och tryck igen för nästa hopp efter landning. Hopp kan användas för att ta sig över de roterande hindren.
 
 Pausmenyn har också knappen **Generera en ny bana**. Stjärnor och banans utformning behålls efter fall och bollen återvänder till senaste checkpoint. Samla alla stjärnor innan du går i mål; antalet visas i spelstatusen. Ljud aktiveras med högtalarknappen.
@@ -60,7 +62,7 @@ Webbläsaren behöver WebGL. Molnmiljöns tester använder mjukvarurendering i C
 ## Windows-app (.exe)
 
 Den portabla versionen för **64-bitars Windows 10/11** finns efter paketering i
-`release/Boll-0.3.0-Windows-x64.exe`. Kopiera filen till datorn och dubbelklicka.
+`release/Boll-0.4.0-Windows-x64.exe`. Kopiera filen till datorn och dubbelklicka.
 Ingen installation, Node.js, separat webbserver eller internetanslutning behövs.
 Första starten kan ta en stund eftersom appen packar upp sina resurser i en tillfällig katalog.
 Längsta resan sparas i användarens lokala appdata mellan starter.
