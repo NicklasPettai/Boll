@@ -1,0 +1,39 @@
+name: Bygg Boll för Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - codex/windows-download
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Portabel Windows-exe
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Hämta källkoden
+        uses: actions/checkout@v4
+      - name: Installera Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Installera beroenden
+        run: npm ci
+      - name: Testa spelregler och fysik
+        run: npm test
+      - name: Bygg portabel Windows-app
+        run: npm run build:windows
+      - name: Spara nedladdningsbar Windows-app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Boll-Windows-x64
+          path: release/Boll-*-Windows-x64.exe
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
