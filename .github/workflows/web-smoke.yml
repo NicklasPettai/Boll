@@ -1,0 +1,38 @@
+name: Kontrollera den publika speladressen
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/windows-download
+    paths:
+      - .github/workflows/web-smoke.yml
+      - scripts/test-published.mjs
+
+permissions:
+  contents: read
+
+jobs:
+  published-game:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Testa den publicerade sidan på dator och mobil
+        run: node scripts/test-published.mjs
+      - name: Spara skärmbilder för felsökning
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Boll-published-site-check
+          path: test-results/published-*.png
+          if-no-files-found: ignore
+          retention-days: 7
