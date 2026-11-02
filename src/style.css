@@ -12,4 +12,14 @@
 .touch-actions{display:flex;flex-direction:column;gap:8px}
 .jump-button{pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;padding:18px 22px;border:1px solid #fff9;border-radius:12px;background:var(--ink);color:#fffdf2;font-size:13px;font-weight:550;box-shadow:0 3px 10px #263d3510}
 .jump-button.active{background:#4a6550}
+.options-dialog{padding:0;border:0;background:transparent;color:var(--ink);max-width:calc(100vw - 32px);max-height:calc(100svh - 32px);overflow:auto;border-radius:24px}
+.options-dialog::backdrop{background:#dbe4d780;backdrop-filter:blur(10px)}
+.options-card{width:min(420px,calc(100vw - 36px));margin:0}
+.option-row{display:flex;align-items:flex-start;gap:14px;padding:20px 16px;margin-top:24px;border:1px solid #263d3520;border-radius:12px;text-align:left;cursor:pointer;background:#eef2e7}
+.option-row input{accent-color:var(--ink);width:21px;height:21px;flex-shrink:0;margin:1px 0 0;cursor:pointer}
+.option-row strong{display:block;font-size:14px;font-weight:600;margin-bottom:7px}
+.option-row small{display:block;color:#718474;font-size:12px;line-height:1.7}
+.options-card .camera-choice{font-size:11px;line-height:1.7;margin:17px 0 24px}
+#pause-options{display:block;margin:16px auto 0}
+@media(max-width:360px){.level-label{display:none}}
 @media(min-width:641px) and (max-width:850px){.controls-legend{gap:10px}.controls-legend>span:first-child kbd:nth-child(n+2){display:none}.controls-legend>span:first-child kbd:first-child:after{content:"ASD"}}

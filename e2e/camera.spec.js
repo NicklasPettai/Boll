@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
 
+async function selectThirdPerson(page) {
+  await page.getByRole('button', { name: 'Öppna inställningar' }).click();
+  await page.getByRole('checkbox', { name: 'Tredjeperson', exact: true }).check();
+  await page.getByRole('button', { name: 'Klart' }).click();
+}
+
 async function view(page) {
   return page.evaluate(async () => {
     const { game, camera } = await import(document.querySelector('script[src*="/src/main.js"]').src);
@@ -23,6 +29,7 @@ test('camera follows close behind, turns without steering a held key in circles,
   await page.goto('/');
   await expect(page.locator('#loading')).toBeHidden();
   await expect(page.locator('#app')).toHaveAttribute('data-camera', 'overview');
+  await selectThirdPerson(page);
   await page.getByRole('button', { name: 'Nu rullar vi' }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-camera', 'third-person');
   let state = await view(page);
@@ -67,6 +74,7 @@ test('camera follows close behind, turns without steering a held key in circles,
 test('respawning places the camera behind the checkpoint facing its outgoing bridge', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#loading')).toBeHidden();
+  await selectThirdPerson(page);
   await page.getByRole('button', { name: 'Nu rullar vi' }).click();
   await page.evaluate(async () => {
     const { game } = await import(document.querySelector('script[src*="/src/main.js"]').src);
@@ -97,6 +105,7 @@ test('mobile uses a trailing view with room for touch controls and jumping', asy
   const page = await context.newPage();
   await page.goto('/');
   await expect(page.locator('#loading')).toBeHidden();
+  await selectThirdPerson(page);
   await page.getByRole('button', { name: 'Nu rullar vi' }).tap();
   const state = await view(page);
   expect(state.offset.z).toBeGreaterThan(8);

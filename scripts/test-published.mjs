@@ -34,7 +34,7 @@ try {
       const seed = await page.locator('#app').getAttribute('data-seed');
       assert.ok(seed, 'The published page must contain the generated-course version.');
       await page.getByRole('button', { name: 'Nu rullar vi' }).click();
-      await expect(page.locator('#app')).toHaveAttribute('data-camera', 'third-person');
+      await expect(page.locator('#app')).toHaveAttribute('data-camera', 'overhead');
       if (mobile) {
         const forward = page.getByRole('button', { name: 'Rulla framåt' });
         await expect(forward).toBeVisible();
@@ -53,6 +53,10 @@ try {
       await expect(page.locator('#app')).not.toHaveAttribute('data-seed', seed);
       await expect(page.locator('#stars')).toHaveText('0');
       await expect(page.locator('#dialog')).toBeHidden();
+      await page.getByRole('button', { name: 'Öppna inställningar' }).click();
+      await page.getByRole('checkbox', { name: 'Tredjeperson', exact: true }).check();
+      await page.getByRole('button', { name: 'Klart' }).click();
+      await expect(page.locator('#app')).toHaveAttribute('data-camera', 'third-person');
       await expect(page.locator('canvas')).toHaveAttribute('aria-label', /Mellanslag hoppar, Shift bromsar/);
       if (mobile) {
         await page.getByRole('button', { name: 'Hoppa', exact: true }).click();
@@ -62,7 +66,7 @@ try {
       }
       await page.screenshot({ path: `test-results/published-${label}.png` });
       assert.deepEqual(errors, [], `${label}: browser or resource errors`);
-      console.log(`PASS ${label}: ${page.url()} returns HTTP 200, renders 3D, collects a star, generates a new course and includes the jump controls.`);
+      console.log(`PASS ${label}: ${page.url()} returns HTTP 200, plays overhead, collects a star and switches to third-person through Options.`);
     } catch (error) {
       await page.screenshot({ path: `test-results/published-${label}-failure.png` }).catch(() => {});
       console.error(`${label} failed at ${page.url()}:`, error);

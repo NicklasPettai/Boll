@@ -21,6 +21,11 @@ export { camera };
 let stars = [], barMeshes = [], checkpointMeshes = [];
 let particles = [];
 let best = 0;
+let thirdPerson = false;
+let resumeAfterOptions = false;
+let returnToDialog = false;
+let optionsFocus = null;
+try { thirdPerson = localStorage.getItem('boll-camera-mode') === 'third-person'; } catch { /* Settings still work without storage. */ }
 try { best = Number(localStorage.getItem('boll-longest-journey')) || 0; } catch { /* Storage is optional. */ }
 if (best) $('best').textContent = `LÄNGSTA RESA: ${best} ${best === 1 ? 'BANA' : 'BANOR'}`;
 
@@ -269,7 +274,7 @@ function processEvents(events) {
     if(event.type==='checkpoint') { toast('Checkpoint! Härifrån fortsätter du om du faller.');tone(520,.15);tone(780,.2,.04,.12); }
     if(event.type==='fall') {
       const bridge = game.checkpoint >= 0 ? game.level.bridges[game.checkpoint + 1] : null;
-      resetChaseCamera(bridge ? { x: bridge.to.x - bridge.from.x, z: bridge.to.z - bridge.from.z } : undefined);
+      resetSelectedCamera(bridge ? { x: bridge.to.x - bridge.from.x, z: bridge.to.z - bridge.from.z } : undefined);
       toast('Oj då! Tillbaka på banan. Stjärnorna är kvar.');tone(220,.3);
     }
     if(event.type==='locked') {
@@ -299,7 +304,7 @@ function getInput() {
     jump: keys.has('Space') || touch.has('jump'),
     jumpPressed: jumpQueued,
   };
-  return { ...input, ...chaseCamera.movement(input) };
+  return thirdPerson ? { ...input, ...chaseCamera.movement(input) } : input;
 }
 
 function applyChaseCamera() {
@@ -308,11 +313,20 @@ function applyChaseCamera() {
   camera.lookAt(target.x, target.y, target.z);
 }
 
-function resetChaseCamera(direction) {
+function applyOverheadCamera(snap = false, dt = 0) {
+  const p = game.ball.position;
+  const target = new THREE.Vector3(p.x, Math.max(0, p.y - RADIUS) + 12, p.z + 17);
+  if (snap) camera.position.copy(target);
+  else camera.position.lerp(target, 1 - Math.exp(-3 * dt));
+  camera.lookAt(p.x, 0, p.z - 4.5);
+}
+
+function resetSelectedCamera(direction) {
   chaseCamera.reset(game.ball.position, direction, innerWidth < 641);
-  $('app').dataset.camera = 'third-person';
+  $('app').dataset.camera = thirdPerson ? 'third-person' : 'overhead';
   resize();
-  applyChaseCamera();
+  if (thirdPerson) applyChaseCamera();
+  else applyOverheadCamera(true);
 }
 
 function frame(time) {
@@ -352,8 +366,10 @@ function frame(time) {
     camera.position.lerp(new THREE.Vector3(mobile?12:15,mobile?25:26,mobile?25:28),1-Math.exp(-dt*3));
     camera.lookAt(mobile?0:-9,0,mobile?-9:-10);
   } else if (game.state === 'playing') {
-    chaseCamera.update(p, game.ball.velocity, dt, mobile);
-    applyChaseCamera();
+    if (thirdPerson) {
+      chaseCamera.update(p, game.ball.velocity, dt, mobile);
+      applyChaseCamera();
+    } else applyOverheadCamera(false, dt);
   }
   $('timer').textContent=formatTime(game.elapsed);
   $('stars').textContent=game.collected.size;
@@ -372,7 +388,7 @@ function clearInput() {
 
 function start() {
   game.start();
-  resetChaseCamera();
+  resetSelectedCamera();
   $('intro').classList.add('dismissed');
   $('intro').inert=true;
   $('app').classList.add('playing');
@@ -421,13 +437,13 @@ function restart(advance = false) {
   $('pause').disabled=false;
   renderer?.domElement.focus({preventScroll:true});
   checkpointMeshes.forEach(ring=>ring.material.color.setHex(0xf7f4db));
-  resetChaseCamera();
+  resetSelectedCamera();
   toast(advance ? `Bana ${game.level.number}! En helt ny väg väntar.` : 'En ny bana är redo. Nu rullar vi!');
 }
 
 function resize() {
   camera.aspect=innerWidth/innerHeight;
-  camera.fov=game.state==='intro'?42:(innerWidth<641?60:54);
+  camera.fov=game.state==='intro'||!thirdPerson?42:(innerWidth<641?60:54);
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
 }
@@ -438,6 +454,54 @@ $('pause').addEventListener('click',togglePause);
 $('restart').addEventListener('click',()=>restart());
 $('restart-dialog').addEventListener('click',()=>restart());
 $('resume').addEventListener('click',()=>game.state==='won'?restart(true):closeDialog());
+
+function updateCameraChoice() {
+  $('third-person').checked = thirdPerson;
+  $('camera-choice').textContent = thirdPerson
+    ? 'Aktuell vy: Tredjeperson – bakom bollen.'
+    : 'Aktuell vy: Ovanifrån – klassisk styrning.';
+}
+
+function openOptions() {
+  if ($('options-dialog').open) return;
+  optionsFocus = document.activeElement;
+  returnToDialog = !$('dialog').hidden;
+  resumeAfterOptions = game.state === 'playing';
+  if (resumeAfterOptions) game.pause();
+  clearInput();
+  if (returnToDialog) $('dialog').hidden = true;
+  updateCameraChoice();
+  $('options-dialog').showModal();
+  $('third-person').focus();
+}
+
+$('options').addEventListener('click', openOptions);
+$('pause-options').addEventListener('click', openOptions);
+$('third-person').addEventListener('change', () => {
+  thirdPerson = $('third-person').checked;
+  clearInput();
+  try { localStorage.setItem('boll-camera-mode', thirdPerson ? 'third-person' : 'overhead'); } catch { /* Keep the current-session preference. */ }
+  updateCameraChoice();
+  if (game.state !== 'intro') {
+    const v = game.ball.velocity;
+    resetSelectedCamera(Math.hypot(v.x, v.z) > 0.45 ? { x: v.x, z: v.z } : undefined);
+  }
+});
+$('options-dialog').addEventListener('close', () => {
+  clearInput();
+  if (returnToDialog) {
+    $('dialog').hidden = false;
+    optionsFocus?.focus();
+  } else if (resumeAfterOptions && !document.hidden && game.state === 'paused') {
+    game.resume();
+    renderer?.domElement.focus({ preventScroll: true });
+  } else if (game.state === 'paused') openDialog();
+  else optionsFocus?.focus();
+  resumeAfterOptions = false;
+  returnToDialog = false;
+  optionsFocus = null;
+});
+updateCameraChoice();
 $('sound').addEventListener('click',async()=>{
   try {
     audio??=new (window.AudioContext||window.webkitAudioContext)();
@@ -449,6 +513,7 @@ $('sound').addEventListener('click',async()=>{
 });
 
 window.addEventListener('keydown',event=>{
+  if ($('options-dialog').open) return;
   if(event.code==='Tab' && !$('dialog').hidden) {
     const buttons=[...$('dialog').querySelectorAll('button:not([hidden])')];
     const first=buttons[0],last=buttons.at(-1);
@@ -466,7 +531,11 @@ window.addEventListener('keydown',event=>{
   keys.add(event.code);
 });
 window.addEventListener('keyup',event=>keys.delete(event.code));
-function autoPause() {clearInput();if(game.state==='playing') {game.pause();openDialog();}}
+function autoPause() {
+  clearInput();
+  if ($('options-dialog').open) { resumeAfterOptions = false; return; }
+  if(game.state==='playing') {game.pause();openDialog();}
+}
 window.addEventListener('blur',autoPause);
 document.addEventListener('visibilitychange',()=>{if(document.hidden) autoPause();});
 window.addEventListener('resize',()=>{if(renderer) resize();});
